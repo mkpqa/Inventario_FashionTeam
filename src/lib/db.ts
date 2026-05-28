@@ -33,6 +33,7 @@ export async function getDbProducts(): Promise<Product[]> {
     price: Number(p.unit_price),
     min_stock: p.min_stock,
     status: p.status || calculateStatus(p.stock, p.min_stock),
+    image_url: p.image_url,
     created_at: p.created_at
   }));
 }
@@ -51,7 +52,8 @@ export async function addDbProduct(product: Omit<Product, 'id'>): Promise<Produc
         stock: product.stock,
         min_stock: minStock,
         unit_price: product.price,
-        status: status
+        status: status,
+        image_url: product.image_url
       }
     ])
     .select()
@@ -71,6 +73,7 @@ export async function addDbProduct(product: Omit<Product, 'id'>): Promise<Produc
     price: Number(data.unit_price),
     min_stock: data.min_stock,
     status: data.status,
+    image_url: data.image_url,
     created_at: data.created_at
   };
 }
@@ -88,7 +91,8 @@ export async function updateDbProduct(product: Product): Promise<Product> {
       stock: product.stock,
       min_stock: minStock,
       unit_price: product.price,
-      status: status
+      status: status,
+      image_url: product.image_url
     })
     .eq('id', product.id)
     .select()
@@ -108,6 +112,7 @@ export async function updateDbProduct(product: Product): Promise<Product> {
     price: Number(data.unit_price),
     min_stock: data.min_stock,
     status: data.status,
+    image_url: data.image_url,
     created_at: data.created_at
   };
 }

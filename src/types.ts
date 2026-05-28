@@ -7,6 +7,7 @@ export interface Product {
   price: number; // Mapea a unit_price en la base de datos
   min_stock?: number;
   status?: 'en_stock' | 'stock_bajo' | 'agotado';
+  image_url?: string;
   created_at?: string;
 }
 

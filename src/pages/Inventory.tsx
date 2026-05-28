@@ -7,11 +7,15 @@ import {
   Trash2,
   Plus,
   X,
-  Loader2
+  Loader2,
+  Image as ImageIcon,
+  Upload,
+  Package
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
 import { useInventory } from '../InventoryContext';
+import { supabase } from '../lib/supabase';
 import * as XLSX from 'xlsx';
 
 export default function Inventory() {
@@ -19,6 +23,8 @@ export default function Inventory() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingProduct, setEditingProduct] = useState<any>(null);
   const [formData, setFormData] = useState<any>({ sku: '', name: '', category: 'Telas', stock: '', price: '', min_stock: 50 });
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [filePreview, setFilePreview] = useState<string | null>(null);
   const [processing, setProcessing] = useState(false);
   const [modalError, setModalError] = useState<string | null>(null);
 
@@ -41,16 +47,37 @@ export default function Inventory() {
     setProcessing(true);
     setModalError(null);
 
-    const cleanData = {
-      sku: formData.sku,
-      name: formData.name,
-      category: formData.category,
-      stock: Number(formData.stock) || 0,
-      price: Number(formData.price) || 0,
-      min_stock: Number(formData.min_stock) || 50
-    };
+    let uploadedImageUrl = editingProduct ? editingProduct.image_url : null;
 
     try {
+      if (selectedFile) {
+        const fileExt = selectedFile.name.split('.').pop();
+        const fileName = `${formData.sku || Math.random().toString(36).substring(2)}-${Date.now()}.${fileExt}`;
+        const filePath = `${fileName}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from('product-logos')
+          .upload(filePath, selectedFile);
+
+        if (uploadError) throw uploadError;
+
+        const { data: publicUrlData } = supabase.storage
+          .from('product-logos')
+          .getPublicUrl(filePath);
+
+        uploadedImageUrl = publicUrlData.publicUrl;
+      }
+
+      const cleanData = {
+        sku: formData.sku,
+        name: formData.name,
+        category: formData.category,
+        stock: Number(formData.stock) || 0,
+        price: Number(formData.price) || 0,
+        min_stock: Number(formData.min_stock) || 50,
+        image_url: uploadedImageUrl
+      };
+
       if (editingProduct) {
         await updateProduct({ ...cleanData, id: editingProduct.id });
       } else {
@@ -59,6 +86,8 @@ export default function Inventory() {
       setShowAddModal(false);
       setEditingProduct(null);
       setFormData({ sku: '', name: '', category: 'Telas', stock: '', price: '', min_stock: 50 });
+      setFilePreview(null);
+      setSelectedFile(null);
     } catch (err: any) {
       setModalError(err.message || 'Error al guardar los cambios en Supabase.');
     } finally {
@@ -76,6 +105,8 @@ export default function Inventory() {
       price: product.price,
       min_stock: product.min_stock || 50
     });
+    setFilePreview(product.image_url || null);
+    setSelectedFile(null);
     setShowAddModal(true);
   };
 
@@ -107,7 +138,14 @@ export default function Inventory() {
         </div>
         <div className="flex gap-2">
           <button 
-            onClick={() => { setShowAddModal(true); setEditingProduct(null); setFormData({ sku: '', name: '', category: 'Telas', stock: '', price: '', min_stock: 50 }); setModalError(null); }}
+            onClick={() => { 
+              setShowAddModal(true); 
+              setEditingProduct(null); 
+              setFormData({ sku: '', name: '', category: 'Telas', stock: '', price: '', min_stock: 50 }); 
+              setFilePreview(null);
+              setSelectedFile(null);
+              setModalError(null); 
+            }}
             className="flex items-center gap-2 px-4 py-2 bg-brand-primary text-[#09090b] text-sm font-bold rounded-lg hover:bg-brand-primary-hover transition-all cursor-pointer"
           >
             <Plus size={16} />
@@ -155,7 +193,18 @@ export default function Inventory() {
                     className="hover:bg-[#27272a]/20 transition-colors group focus-within:ring-2 focus-within:ring-brand-primary/20"
                   >
                     <td className="py-4 px-6 text-xs font-mono text-[#52525b]">{item.sku}</td>
-                    <td className="py-4 px-6 text-sm font-semibold text-[#fafafa]">{item.name}</td>
+                    <td className="py-4 px-6">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-lg bg-[#27272a]/40 border border-[#27272a] flex items-center justify-center overflow-hidden shrink-0 shadow-sm">
+                          {item.image_url ? (
+                            <img src={item.image_url} alt={item.name} className="w-full h-full object-cover" />
+                          ) : (
+                            <Package className="text-[#52525b]" size={18} />
+                          )}
+                        </div>
+                        <span className="text-sm font-semibold text-[#fafafa]">{item.name}</span>
+                      </div>
+                    </td>
                     <td className="py-4 px-6 text-sm text-[#a1a1aa]">{item.category}</td>
                     <td className="py-4 px-6 text-right">
                       <span className={cn(
@@ -297,6 +346,48 @@ export default function Inventory() {
                       onChange={(e) => setFormData({...formData, price: e.target.value})}
                       required
                     />
+                  </div>
+                </div>
+
+                {/* Upload Image Section */}
+                <div className="space-y-1.5">
+                  <label className="t-label pl-1">Imagen / Logo del Producto</label>
+                  <div className="flex items-center gap-4 p-4 bg-[#09090b] border border-[#27272a] rounded-xl">
+                    <div className="w-16 h-16 rounded-lg bg-[#18181b] border border-[#27272a] flex items-center justify-center overflow-hidden shrink-0 shadow-inner">
+                      {filePreview ? (
+                        <img src={filePreview} alt="Preview" className="w-full h-full object-cover animate-in fade-in duration-200" />
+                      ) : (
+                        <Package className="text-[#52525b]" size={24} />
+                      )}
+                    </div>
+                    <div className="flex-1 space-y-1">
+                      <label className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#18181b] hover:bg-[#27272a] border border-[#27272a] text-xs font-semibold text-[#fafafa] rounded-lg cursor-pointer transition-colors active:scale-95 duration-100">
+                        <Upload size={14} className="text-[#a1a1aa]" />
+                        <span>Seleccionar imagen</span>
+                        <input 
+                          type="file" 
+                          accept="image/*" 
+                          className="hidden" 
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              setSelectedFile(file);
+                              setFilePreview(URL.createObjectURL(file));
+                            }
+                          }}
+                        />
+                      </label>
+                      <p className="text-[10px] text-[#52525b]">Formatos: JPG, PNG, WEBP. Máx: 2MB.</p>
+                    </div>
+                    {filePreview && (
+                      <button 
+                        type="button" 
+                        onClick={() => { setSelectedFile(null); setFilePreview(null); }}
+                        className="text-[#52525b] hover:text-status-error p-1.5 rounded-lg hover:bg-[#18181b] transition-colors cursor-pointer"
+                      >
+                        <X size={16} />
+                      </button>
+                    )}
                   </div>
                 </div>
 
