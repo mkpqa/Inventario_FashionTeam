@@ -1,0 +1,8 @@
+{
+  "name": "FashionTeamWeb",
+  "description": "A high-performance inventory management and logistics dashboard designed for precision and operational efficiency.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
