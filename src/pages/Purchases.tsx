@@ -224,11 +224,14 @@ export default function Purchases() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {products.map(product => (
               <div key={product.id} className="bg-[#18181b] border border-[#27272a] rounded-xl overflow-hidden hover:border-[#3f3f46] transition-colors group">
-                <div className="h-32 overflow-hidden bg-[#27272a]">
+                <div className="h-28 overflow-hidden bg-[#1f1f23]/50 flex items-center justify-center p-3 border-b border-[#27272a]">
                   <img 
                     src={product.image_url || getPlaceholderImage(product.category)} 
                     alt={product.name} 
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                    className={cn(
+                      "w-full h-full transition-transform duration-500 group-hover:scale-105",
+                      product.image_url ? "object-contain" : "object-cover"
+                    )}
                   />
                 </div>
                 <div className="p-4 space-y-3">
