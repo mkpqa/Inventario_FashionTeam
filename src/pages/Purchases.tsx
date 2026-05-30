@@ -226,7 +226,7 @@ export default function Purchases() {
               <div key={product.id} className="bg-[#18181b] border border-[#27272a] rounded-xl overflow-hidden hover:border-[#3f3f46] transition-colors group">
                 <div className="h-32 overflow-hidden bg-[#27272a]">
                   <img 
-                    src={getPlaceholderImage(product.category)} 
+                    src={product.image_url || getPlaceholderImage(product.category)} 
                     alt={product.name} 
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                   />
