@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Product, Sale, Purchase, ScrapSale, AlertHistory } from './types';
 import * as db from './lib/db';
+import { useAuth } from './AuthContext';
 
 interface InventoryContextType {
   products: Product[];
@@ -22,6 +23,7 @@ interface InventoryContextType {
 const InventoryContext = createContext<InventoryContextType | undefined>(undefined);
 
 export function InventoryProvider({ children }: { children: React.ReactNode }) {
+  const { session } = useAuth();
   const [products, setProducts] = useState<Product[]>([]);
   const [sales, setSales] = useState<Sale[]>([]);
   const [purchases, setPurchases] = useState<Purchase[]>([]);
@@ -56,8 +58,19 @@ export function InventoryProvider({ children }: { children: React.ReactNode }) {
   };
 
   useEffect(() => {
-    refreshData();
-  }, []);
+    if (session) {
+      refreshData();
+    } else {
+      // Limpiar estados cuando no hay sesión activa
+      setProducts([]);
+      setSales([]);
+      setPurchases([]);
+      setScrapSales([]);
+      setAlertsHistory([]);
+      setError(null);
+      setLoading(false);
+    }
+  }, [session]);
 
   const addProduct = async (newProduct: Omit<Product, 'id'>) => {
     try {
