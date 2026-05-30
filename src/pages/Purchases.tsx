@@ -302,12 +302,30 @@ export default function Purchases() {
                           </button>
                         </div>
                         <div className="flex justify-between items-center">
-                          <div className="flex items-center gap-2 bg-[#18181b] border border-[#27272a] rounded-md p-1">
-                            <button onClick={() => updateQuantity(item.id, -1)} className="text-[#a1a1aa] hover:text-[#fafafa]">
+                          <div className="flex items-center gap-1 bg-[#18181b] border border-[#27272a] rounded-md p-0.5">
+                            <button onClick={() => updateQuantity(item.id, -1)} className="text-[#a1a1aa] hover:text-[#fafafa] p-1 hover:bg-[#27272a]/40 rounded transition-colors">
                               <Minus size={12} />
                             </button>
-                            <span className="text-xs font-mono w-6 text-center text-[#fafafa]">{item.quantity}</span>
-                            <button onClick={() => updateQuantity(item.id, 1)} className="text-[#a1a1aa] hover:text-[#fafafa]">
+                            <input 
+                              type="number"
+                              min="1"
+                              className="text-xs font-mono w-10 text-center bg-transparent text-[#fafafa] border-none outline-none focus:ring-0 focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none p-0"
+                              value={item.quantity}
+                              onChange={(e) => {
+                                const val = parseInt(e.target.value, 10);
+                                if (!isNaN(val)) {
+                                  setCart(prev => prev.map(c => c.id === item.id ? { ...c, quantity: Math.max(1, val) } : c));
+                                } else {
+                                  setCart(prev => prev.map(c => c.id === item.id ? { ...c, quantity: '' as any } : c));
+                                }
+                              }}
+                              onBlur={() => {
+                                if (item.quantity === '' as any || item.quantity < 1) {
+                                  setCart(prev => prev.map(c => c.id === item.id ? { ...c, quantity: 1 } : c));
+                                }
+                              }}
+                            />
+                            <button onClick={() => updateQuantity(item.id, 1)} className="text-[#a1a1aa] hover:text-[#fafafa] p-1 hover:bg-[#27272a]/40 rounded transition-colors">
                               <Plus size={12} />
                             </button>
                           </div>
