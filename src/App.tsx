@@ -13,7 +13,7 @@ import Settings from './pages/Settings';
 import Sales from './pages/Sales';
 import Alerts from './pages/Alerts';
 import Purchases from './pages/Purchases';
-import ScrapSales from './pages/ScrapSales';
+import Scanner from './pages/Scanner';
 import History from './pages/History';
 import StockReport from './pages/reports/StockReport';
 import SalesReport from './pages/reports/SalesReport';
@@ -58,7 +58,7 @@ export default function App() {
               <Route path="alerts" element={<Alerts />} />
               <Route path="purchases" element={<Purchases />} />
               <Route path="history" element={<History />} />
-              <Route path="scrap-sales" element={<ScrapSales />} />
+              <Route path="scanner" element={<Scanner />} />
               <Route path="orders" element={<div className="text-white">Pedidos (Próximamente)</div>} />
               <Route path="settings" element={<Settings />} />
             </Route>

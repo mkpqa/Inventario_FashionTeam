@@ -7,7 +7,7 @@ import {
   DollarSign,
   AlertTriangle,
   Truck,
-  Scissors,
+  ScanBarcode,
   History,
   Settings,
   LogOut
@@ -32,7 +32,7 @@ export default function Sidebar({ isOpen = true, onClose }: SidebarProps) {
     { icon: Truck, label: 'Compras', path: '/purchases' },
     { icon: DollarSign, label: 'Ventas', path: '/sales' },
     { icon: History, label: 'Historial', path: '/history' },
-    { icon: Scissors, label: 'Merma', path: '/scrap-sales' },
+    { icon: ScanBarcode, label: 'Escáner', path: '/scanner' },
   ];
 
   const handleNavClick = () => {
