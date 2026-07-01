@@ -103,26 +103,49 @@ export default function Scanner() {
   // ─── Cámara: iniciar / detener ────────────────────────────────────────────
   const startCamera = async () => {
     setCameraError(null);
-    try {
+
+    // Pequeño delay para garantizar que el div contenedor ya está en el DOM
+    await new Promise((r) => setTimeout(r, 80));
+
+    const el = document.getElementById(cameraContainerId);
+    if (!el) {
+      setCameraError('Error interno: contenedor de cámara no encontrado. Intenta de nuevo.');
+      return;
+    }
+
+    const tryStart = async (constraints: object): Promise<void> => {
       const scanner = new Html5Qrcode(cameraContainerId);
       html5QrRef.current = scanner;
-
       await scanner.start(
-        { facingMode: 'environment' },
-        { fps: 10, qrbox: { width: 280, height: 140 } },
-        (decodedText) => {
-          findProductBySku(decodedText);
-          // No detenemos la cámara para poder escanear múltiples productos
-        },
+        constraints,
+        { fps: 10, qrbox: { width: 260, height: 130 } },
+        (decodedText) => { findProductBySku(decodedText); },
         undefined
       );
+    };
+
+    try {
+      // Intentar primero con cámara trasera (celulares)
+      await tryStart({ facingMode: 'environment' });
       setCameraActive(true);
-    } catch (err: any) {
-      console.error('Camera error:', err);
-      setCameraError(
-        'No se pudo acceder a la cámara. Asegúrate de que el navegador tiene permisos y que estás en HTTPS o localhost.'
-      );
-      setCameraActive(false);
+    } catch (err1: any) {
+      // Si falla (laptops sin cámara trasera), intentar con cualquier cámara
+      try {
+        if (html5QrRef.current) {
+          try { await html5QrRef.current.stop(); } catch (_) {}
+          html5QrRef.current.clear();
+          html5QrRef.current = null;
+        }
+        await tryStart({ facingMode: 'user' });
+        setCameraActive(true);
+      } catch (err2: any) {
+        console.error('Camera error (both attempts failed):', err1, err2);
+        setCameraError(
+          'No se pudo acceder a la cámara. Verifica que el navegador tiene permisos de cámara habilitados.'
+        );
+        html5QrRef.current = null;
+        setCameraActive(false);
+      }
     }
   };
 
@@ -269,7 +292,7 @@ export default function Scanner() {
         {/* Panel Izquierdo: Escáner */}
         <div className="bg-[#18181b] border border-[#27272a] rounded-2xl overflow-hidden">
           {/* ─ Modo Pistola ─ */}
-          {scannerMode === 'gun' && (
+          <div className={scannerMode === 'gun' ? 'block' : 'hidden'}>
             <div className="p-6 space-y-4">
               <div className="flex items-center gap-2 mb-2">
                 <Keyboard size={18} className="text-brand-primary" />
@@ -329,10 +352,10 @@ export default function Scanner() {
                 </div>
               </div>
             </div>
-          )}
+          </div>
 
-          {/* ─ Modo Cámara ─ */}
-          {scannerMode === 'camera' && (
+          {/* ─ Modo Cámara ─ — SIEMPRE montado en el DOM para evitar NotFoundError */}
+          <div className={scannerMode === 'camera' ? 'block' : 'hidden'}>
             <div className="p-6 space-y-4">
               <div className="flex items-center gap-2 mb-2">
                 <Camera size={18} className="text-brand-primary" />
@@ -345,7 +368,7 @@ export default function Scanner() {
                 del producto. Funciona tanto en celulares como en laptops.
               </p>
 
-              {/* Contenedor de cámara */}
+              {/* Contenedor de cámara — SIEMPRE en el DOM */}
               <div
                 id={cameraContainerId}
                 className={`w-full rounded-xl overflow-hidden bg-[#0d0d0d] border border-[#27272a] ${cameraActive ? 'min-h-[220px]' : 'h-40 flex items-center justify-center'}`}
@@ -380,7 +403,7 @@ export default function Scanner() {
                 )}
               </button>
             </div>
-          )}
+          </div>
         </div>
 
         {/* Panel Derecho: Resultado del escaneo */}
