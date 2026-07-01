@@ -18,11 +18,11 @@ import {
 import { motion, AnimatePresence } from 'motion/react';
 import { Html5Qrcode } from 'html5-qrcode';
 
-type ActionMode = 'sell' | 'purchase' | null;
+type ActionMode = 'sell' | 'purchase' | 'create' | null;
 type ScannerMode = 'camera' | 'gun';
 
 export default function Scanner() {
-  const { products, addSale, addPurchase } = useInventory();
+  const { products, addSale, addPurchase, addProduct } = useInventory();
 
   // ─── Estado principal ─────────────────────────────────────────────────────
   const [scannerMode, setScannerMode] = useState<ScannerMode>('gun');
@@ -41,6 +41,9 @@ export default function Scanner() {
   const [processing, setProcessing] = useState(false);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+
+  // Formulario creación producto
+  const [createData, setCreateData] = useState({ name: '', category: '', price: '', stock: '' });
 
   // Pistola / teclado rápido
   const gunBufferRef = useRef('');
@@ -177,6 +180,7 @@ export default function Scanner() {
     setActionMode(mode);
     setQuantity('1');
     setClient('');
+    setCreateData({ name: '', category: '', price: '', stock: '0' });
     setActionError(null);
     setSuccessMsg(null);
   };
@@ -188,6 +192,42 @@ export default function Scanner() {
   };
 
   const handleConfirm = async () => {
+    // Lógica para crear producto
+    if (actionMode === 'create') {
+      if (!createData.name.trim() || !createData.category.trim() || !createData.price) {
+        setActionError('Por favor, completa todos los campos requeridos.');
+        return;
+      }
+      setProcessing(true);
+      setActionError(null);
+      try {
+        const stockNum = parseInt(createData.stock || '0', 10);
+        const newProduct = {
+          sku: lastScannedCode,
+          name: createData.name.trim(),
+          category: createData.category.trim(),
+          price: parseFloat(createData.price),
+          stock: stockNum,
+          min_stock: 5,
+          status: stockNum <= 0 ? 'agotado' : 'en_stock'
+        } as Omit<Product, 'id'>;
+        
+        await addProduct(newProduct);
+        setSuccessMsg(`✅ Producto creado: ${newProduct.name}`);
+        
+        // Auto-seleccionar el producto que se acaba de crear buscando por SKU
+        setTimeout(() => {
+          findProductBySku(lastScannedCode);
+          closeModal();
+        }, 1500);
+      } catch (err: any) {
+        setActionError(err.message || 'Error al crear el producto.');
+      } finally {
+        setProcessing(false);
+      }
+      return;
+    }
+
     if (!foundProduct) return;
     const qty = parseInt(quantity, 10);
     if (!qty || qty <= 0) {
@@ -418,16 +458,20 @@ export default function Scanner() {
                 initial={{ opacity: 0, y: 12 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0 }}
-                className="bg-status-error/10 border border-status-error/20 rounded-2xl p-6 flex flex-col items-center gap-3 text-center"
+                className="bg-status-error/10 border border-status-error/20 rounded-2xl p-6 flex flex-col items-center gap-4 text-center"
               >
                 <AlertCircle size={32} className="text-status-error" />
                 <div>
                   <p className="text-sm font-bold text-[#fafafa]">Producto no encontrado</p>
                   <p className="text-xs text-[#71717a] mt-1">{scanError}</p>
                 </div>
-                <p className="text-[11px] text-[#52525b]">
-                  Verifica que el SKU esté registrado en el inventario.
-                </p>
+                <button
+                  onClick={() => openAction('create')}
+                  className="mt-2 w-full py-2.5 bg-status-error text-white font-bold text-sm rounded-xl hover:bg-status-error/90 active:scale-95 transition-all flex justify-center items-center gap-2"
+                >
+                  <PackagePlus size={18} />
+                  Crear Nuevo Producto
+                </button>
               </motion.div>
             )}
 
@@ -560,9 +604,9 @@ export default function Scanner() {
         </div>
       </div>
 
-      {/* ─── Modal de acción (Vender / Agregar Stock) ─────────────────────── */}
+      {/* ─── Modal de acción (Vender / Agregar Stock / Crear) ─────────────────────── */}
       <AnimatePresence>
-        {actionMode && foundProduct && (
+        {actionMode && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -575,26 +619,28 @@ export default function Scanner() {
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.94, opacity: 0, y: 16 }}
               transition={{ type: 'spring', stiffness: 320, damping: 26 }}
-              className="bg-[#18181b] border border-[#27272a] rounded-2xl w-full max-w-sm shadow-2xl overflow-hidden"
+              className="bg-[#18181b] border border-[#27272a] rounded-2xl w-full max-w-sm shadow-2xl overflow-hidden max-h-[90vh] flex flex-col"
             >
               {/* Header del modal */}
-              <div className={`px-5 pt-5 pb-4 flex items-start justify-between border-b border-[#27272a] ${
-                actionMode === 'sell' ? 'bg-brand-primary/5' : 'bg-[#0d0d0d]'
+              <div className={`px-5 pt-5 pb-4 flex items-start justify-between border-b border-[#27272a] shrink-0 ${
+                actionMode === 'sell' ? 'bg-brand-primary/5' : actionMode === 'create' ? 'bg-status-error/5' : 'bg-[#0d0d0d]'
               }`}>
                 <div className="flex items-center gap-3">
                   <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${
                     actionMode === 'sell'
                       ? 'bg-brand-primary/15 text-brand-primary'
+                      : actionMode === 'create'
+                      ? 'bg-status-error/15 text-status-error'
                       : 'bg-[#27272a] text-[#fafafa]'
                   }`}>
                     {actionMode === 'sell' ? <ShoppingCart size={18} /> : <PackagePlus size={18} />}
                   </div>
                   <div>
                     <h3 className="text-sm font-bold text-[#fafafa]">
-                      {actionMode === 'sell' ? 'Registrar Venta' : 'Agregar Stock'}
+                      {actionMode === 'sell' ? 'Registrar Venta' : actionMode === 'create' ? 'Crear Producto' : 'Agregar Stock'}
                     </h3>
                     <p className="text-[11px] text-[#71717a] truncate max-w-[180px]">
-                      {foundProduct.name}
+                      {actionMode === 'create' ? lastScannedCode : foundProduct?.name}
                     </p>
                   </div>
                 </div>
@@ -604,101 +650,124 @@ export default function Scanner() {
               </div>
 
               {/* Cuerpo */}
-              {successMsg ? (
-                <div className="p-8 flex flex-col items-center gap-3 text-center">
-                  <motion.div
-                    initial={{ scale: 0 }}
-                    animate={{ scale: 1 }}
-                    transition={{ type: 'spring', stiffness: 300 }}
-                  >
-                    <CheckCircle2 size={48} className="text-status-success" />
-                  </motion.div>
-                  <p className="text-sm font-semibold text-[#fafafa]">{successMsg}</p>
-                </div>
-              ) : (
-                <div className="p-5 space-y-4">
-                  {/* Precio referencia */}
-                  <div className="flex items-center justify-between bg-[#0d0d0d] rounded-lg px-3 py-2.5">
-                    <span className="text-xs text-[#71717a]">Precio unitario</span>
-                    <span className="text-sm font-bold text-brand-primary">
-                      S/ {foundProduct.price.toFixed(2)}
-                    </span>
+              <div className="overflow-y-auto">
+                {successMsg ? (
+                  <div className="p-8 flex flex-col items-center gap-3 text-center">
+                    <motion.div
+                      initial={{ scale: 0 }}
+                      animate={{ scale: 1 }}
+                      transition={{ type: 'spring', stiffness: 300 }}
+                    >
+                      <CheckCircle2 size={48} className="text-status-success" />
+                    </motion.div>
+                    <p className="text-sm font-semibold text-[#fafafa]">{successMsg}</p>
                   </div>
-
-                  {/* Cantidad */}
-                  <div>
-                    <label className="text-[11px] font-semibold text-[#71717a] uppercase tracking-wider mb-1.5 block">
-                      Cantidad
-                    </label>
-                    <input
-                      type="number"
-                      min={1}
-                      value={quantity}
-                      onChange={(e) => setQuantity(e.target.value)}
-                      autoFocus
-                      onKeyDown={(e) => { if (e.key === 'Enter') handleConfirm(); }}
-                      className="w-full bg-[#0d0d0d] border border-[#27272a] rounded-lg px-3 py-2.5 text-base font-bold text-[#fafafa] focus:outline-none focus:border-brand-primary transition-colors text-center"
-                    />
-                    {actionMode === 'sell' && (
-                      <p className="text-[11px] text-[#52525b] mt-1 text-right">
-                        Stock disponible: {foundProduct.stock}
-                      </p>
-                    )}
-                  </div>
-
-                  {/* Cliente (solo en venta) */}
-                  {actionMode === 'sell' && (
-                    <div>
-                      <label className="text-[11px] font-semibold text-[#71717a] uppercase tracking-wider mb-1.5 block">
-                        Cliente <span className="font-normal normal-case">(opcional)</span>
-                      </label>
-                      <input
-                        type="text"
-                        placeholder="Nombre del cliente..."
-                        value={client}
-                        onChange={(e) => setClient(e.target.value)}
-                        onKeyDown={(e) => { if (e.key === 'Enter') handleConfirm(); }}
-                        className="w-full bg-[#0d0d0d] border border-[#27272a] rounded-lg px-3 py-2.5 text-sm text-[#fafafa] placeholder-[#52525b] focus:outline-none focus:border-brand-primary transition-colors"
-                      />
-                    </div>
-                  )}
-
-                  {/* Total estimado */}
-                  <div className="flex items-center justify-between bg-brand-primary/5 border border-brand-primary/15 rounded-lg px-3 py-2.5">
-                    <span className="text-xs text-[#71717a]">Total estimado</span>
-                    <span className="text-base font-black text-brand-primary">
-                      S/ {(foundProduct.price * (parseInt(quantity) || 0)).toFixed(2)}
-                    </span>
-                  </div>
-
-                  {/* Error de acción */}
-                  {actionError && (
-                    <div className="flex items-start gap-2 bg-status-error/10 border border-status-error/20 rounded-lg px-3 py-2.5">
-                      <AlertCircle size={14} className="text-status-error shrink-0 mt-0.5" />
-                      <p className="text-xs text-status-error">{actionError}</p>
-                    </div>
-                  )}
-
-                  {/* Botón confirmar */}
-                  <button
-                    onClick={handleConfirm}
-                    disabled={processing}
-                    className={`w-full flex items-center justify-center gap-2 py-3 rounded-xl font-bold text-sm transition-all active:scale-95 ${
-                      actionMode === 'sell'
-                        ? 'bg-brand-primary text-white hover:bg-brand-primary/90'
-                        : 'bg-[#27272a] text-[#fafafa] hover:bg-[#3f3f46]'
-                    } disabled:opacity-50`}
-                  >
-                    {processing ? (
-                      <Loader2 size={16} className="animate-spin" />
-                    ) : actionMode === 'sell' ? (
-                      <><ShoppingCart size={16} /> Confirmar Venta</>
+                ) : (
+                  <div className="p-5 space-y-4">
+                    {actionMode === 'create' ? (
+                      // FORMULARIO DE CREAR PRODUCTO
+                      <>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="col-span-2">
+                            <label className="text-[11px] font-semibold text-[#71717a] uppercase tracking-wider mb-1.5 block">SKU</label>
+                            <input type="text" value={lastScannedCode} disabled className="w-full bg-[#0d0d0d] border border-[#27272a] rounded-lg px-3 py-2 text-sm text-[#71717a] opacity-50 cursor-not-allowed" />
+                          </div>
+                          <div className="col-span-2">
+                            <label className="text-[11px] font-semibold text-[#71717a] uppercase tracking-wider mb-1.5 block">Nombre del Producto</label>
+                            <input autoFocus type="text" value={createData.name} onChange={(e) => setCreateData({ ...createData, name: e.target.value })} placeholder="Ej: Camisa Slim Fit" className="w-full bg-[#0d0d0d] border border-[#27272a] rounded-lg px-3 py-2.5 text-sm font-semibold text-[#fafafa] focus:outline-none focus:border-brand-primary" />
+                          </div>
+                          <div className="col-span-2">
+                            <label className="text-[11px] font-semibold text-[#71717a] uppercase tracking-wider mb-1.5 block">Categoría</label>
+                            <input type="text" value={createData.category} onChange={(e) => setCreateData({ ...createData, category: e.target.value })} placeholder="Ej: Ropa" className="w-full bg-[#0d0d0d] border border-[#27272a] rounded-lg px-3 py-2.5 text-sm text-[#fafafa] focus:outline-none focus:border-brand-primary" />
+                          </div>
+                          <div>
+                            <label className="text-[11px] font-semibold text-[#71717a] uppercase tracking-wider mb-1.5 block">Precio (S/)</label>
+                            <input type="number" step="0.01" value={createData.price} onChange={(e) => setCreateData({ ...createData, price: e.target.value })} placeholder="0.00" className="w-full bg-[#0d0d0d] border border-[#27272a] rounded-lg px-3 py-2.5 text-sm font-bold text-brand-primary focus:outline-none focus:border-brand-primary" />
+                          </div>
+                          <div>
+                            <label className="text-[11px] font-semibold text-[#71717a] uppercase tracking-wider mb-1.5 block">Stock Inicial</label>
+                            <input type="number" value={createData.stock} onChange={(e) => setCreateData({ ...createData, stock: e.target.value })} onKeyDown={(e) => { if (e.key === 'Enter') handleConfirm(); }} className="w-full bg-[#0d0d0d] border border-[#27272a] rounded-lg px-3 py-2.5 text-sm font-bold text-[#fafafa] focus:outline-none focus:border-brand-primary" />
+                          </div>
+                        </div>
+                      </>
                     ) : (
-                      <><PackagePlus size={16} /> Confirmar Entrada</>
+                      // FORMULARIO DE VENDER / COMPRAR
+                      <>
+                        {foundProduct && (
+                          <div className="flex items-center justify-between bg-[#0d0d0d] rounded-lg px-3 py-2.5">
+                            <span className="text-xs text-[#71717a]">Precio unitario</span>
+                            <span className="text-sm font-bold text-brand-primary">
+                              S/ {foundProduct.price.toFixed(2)}
+                            </span>
+                          </div>
+                        )}
+                        <div>
+                          <label className="text-[11px] font-semibold text-[#71717a] uppercase tracking-wider mb-1.5 block">Cantidad</label>
+                          <input
+                            type="number" min={1} value={quantity} onChange={(e) => setQuantity(e.target.value)} autoFocus onKeyDown={(e) => { if (e.key === 'Enter') handleConfirm(); }}
+                            className="w-full bg-[#0d0d0d] border border-[#27272a] rounded-lg px-3 py-2.5 text-base font-bold text-[#fafafa] focus:outline-none focus:border-brand-primary transition-colors text-center"
+                          />
+                          {actionMode === 'sell' && foundProduct && (
+                            <p className="text-[11px] text-[#52525b] mt-1 text-right">
+                              Stock disponible: {foundProduct.stock}
+                            </p>
+                          )}
+                        </div>
+                        {actionMode === 'sell' && (
+                          <div>
+                            <label className="text-[11px] font-semibold text-[#71717a] uppercase tracking-wider mb-1.5 block">
+                              Cliente <span className="font-normal normal-case">(opcional)</span>
+                            </label>
+                            <input
+                              type="text" placeholder="Nombre del cliente..." value={client} onChange={(e) => setClient(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') handleConfirm(); }}
+                              className="w-full bg-[#0d0d0d] border border-[#27272a] rounded-lg px-3 py-2.5 text-sm text-[#fafafa] placeholder-[#52525b] focus:outline-none focus:border-brand-primary transition-colors"
+                            />
+                          </div>
+                        )}
+                        {foundProduct && (
+                          <div className="flex items-center justify-between bg-brand-primary/5 border border-brand-primary/15 rounded-lg px-3 py-2.5">
+                            <span className="text-xs text-[#71717a]">Total estimado</span>
+                            <span className="text-base font-black text-brand-primary">
+                              S/ {(foundProduct.price * (parseInt(quantity) || 0)).toFixed(2)}
+                            </span>
+                          </div>
+                        )}
+                      </>
                     )}
-                  </button>
-                </div>
-              )}
+
+                    {/* Error de acción */}
+                    {actionError && (
+                      <div className="flex items-start gap-2 bg-status-error/10 border border-status-error/20 rounded-lg px-3 py-2.5 mt-4">
+                        <AlertCircle size={14} className="text-status-error shrink-0 mt-0.5" />
+                        <p className="text-xs text-status-error">{actionError}</p>
+                      </div>
+                    )}
+
+                    {/* Botón confirmar */}
+                    <button
+                      onClick={handleConfirm}
+                      disabled={processing}
+                      className={`w-full flex items-center justify-center gap-2 py-3 rounded-xl font-bold text-sm transition-all active:scale-95 mt-4 ${
+                        actionMode === 'sell'
+                          ? 'bg-brand-primary text-white hover:bg-brand-primary/90'
+                          : actionMode === 'create'
+                          ? 'bg-status-error text-white hover:bg-status-error/90'
+                          : 'bg-[#27272a] text-[#fafafa] hover:bg-[#3f3f46]'
+                      } disabled:opacity-50`}
+                    >
+                      {processing ? (
+                        <Loader2 size={16} className="animate-spin" />
+                      ) : actionMode === 'sell' ? (
+                        <><ShoppingCart size={16} /> Confirmar Venta</>
+                      ) : actionMode === 'create' ? (
+                        <><CheckCircle2 size={16} /> Guardar Producto</>
+                      ) : (
+                        <><PackagePlus size={16} /> Confirmar Entrada</>
+                      )}
+                    </button>
+                  </div>
+                )}
+              </div>
             </motion.div>
           </motion.div>
         )}
