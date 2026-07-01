@@ -368,18 +368,20 @@ export default function Scanner() {
                 del producto. Funciona tanto en celulares como en laptops.
               </p>
 
-              {/* Contenedor de cámara — SIEMPRE en el DOM */}
+              {/* Placeholder SEPARADO — React controla este nodo, NO el contenedor de cámara */}
+              {!cameraActive && (
+                <div className="h-40 flex flex-col items-center justify-center bg-[#0d0d0d] rounded-xl border border-[#27272a] gap-2 text-[#52525b]">
+                  <CameraOff size={36} />
+                  <p className="text-xs">Cámara inactiva</p>
+                </div>
+              )}
+
+              {/* Contenedor de cámara — VACÍO en JSX: html5-qrcode lo gestiona directamente */}
               <div
                 id={cameraContainerId}
-                className={`w-full rounded-xl overflow-hidden bg-[#0d0d0d] border border-[#27272a] ${cameraActive ? 'min-h-[220px]' : 'h-40 flex items-center justify-center'}`}
-              >
-                {!cameraActive && (
-                  <div className="flex flex-col items-center gap-2 text-[#52525b]">
-                    <CameraOff size={36} />
-                    <p className="text-xs">Cámara inactiva</p>
-                  </div>
-                )}
-              </div>
+                style={{ display: cameraActive ? 'block' : 'none' }}
+                className="w-full rounded-xl overflow-hidden bg-[#0d0d0d] border border-[#27272a] min-h-[220px]"
+              />
 
               {cameraError && (
                 <div className="flex items-start gap-2 bg-status-error/10 border border-status-error/20 rounded-lg px-3 py-2.5">
