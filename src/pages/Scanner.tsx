@@ -103,13 +103,15 @@ export default function Scanner() {
   // ─── Cámara: iniciar / detener ────────────────────────────────────────────
   const startCamera = async () => {
     setCameraError(null);
+    setCameraActive(true); // IMPORTANT: Make the div visible BEFORE initialization
 
-    // Pequeño delay para garantizar que el div contenedor ya está en el DOM
-    await new Promise((r) => setTimeout(r, 80));
+    // Wait for React to flush the state and render the display:block
+    await new Promise((r) => setTimeout(r, 100));
 
     const el = document.getElementById(cameraContainerId);
     if (!el) {
       setCameraError('Error interno: contenedor de cámara no encontrado. Intenta de nuevo.');
+      setCameraActive(false);
       return;
     }
 
@@ -127,7 +129,6 @@ export default function Scanner() {
     try {
       // Intentar primero con cámara trasera (celulares)
       await tryStart({ facingMode: 'environment' });
-      setCameraActive(true);
     } catch (err1: any) {
       // Si falla (laptops sin cámara trasera), intentar con cualquier cámara
       try {
@@ -137,14 +138,13 @@ export default function Scanner() {
           html5QrRef.current = null;
         }
         await tryStart({ facingMode: 'user' });
-        setCameraActive(true);
       } catch (err2: any) {
         console.error('Camera error (both attempts failed):', err1, err2);
         setCameraError(
           'No se pudo acceder a la cámara. Verifica que el navegador tiene permisos de cámara habilitados.'
         );
         html5QrRef.current = null;
-        setCameraActive(false);
+        setCameraActive(false); // Revert to hidden on failure
       }
     }
   };
